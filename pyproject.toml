@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fakemic"
+version = "1.0.0"
+description = "Fake virtual microphone (silent or white-noise) manager for PipeWire, set as the default capture so browsers list it first"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "fakemic" }]
+keywords = ["pipewire", "pulseaudio", "microphone", "virtual-microphone", "privacy", "white-noise"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Unix Shell",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+# No hard Python deps — the heavy lifting is in the bundled bash script, which
+# calls system tools (pactl, sox, systemctl). Those are checked at runtime.
+
+[project.scripts]
+fakemic = "fakemic:main"
+
+[project.urls]
+Homepage = "https://example.invalid/fakemic"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fakemic = ["fakemic.sh"]
