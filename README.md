@@ -36,6 +36,24 @@ Install on common distros:
 | Debian   | `apt install pulseaudio-utils` | `apt install sox` |
 | Fedora   | `dnf install pulseaudio-utils`  | `dnf install sox` |
 
+### Auto-install on first run
+
+You usually don't need to install those by hand. On first run, if `pactl` or
+`sox` is missing, `fakemic` detects your distro (Arch/Debian/Fedora/openSUSE
+families) and offers to install the right package with `sudo` right there:
+
+```
+fakemic: missing system dependency: sox
+fakemic: this needs root. Install now with:
+  sudo pacman -S --noconfirm --needed sox
+Proceed? [Y/n]
+```
+
+Answer `Y` (or just press Enter) to install, then the command continues. In a
+non-interactive context (scripts, systemd) it prints the exact `sudo ...` line
+and exits so you can run it yourself. On an unknown distro it tells you what's
+missing and lets you install it manually.
+
 PipeWire + pipewire-pulse + WirePlumber must be running (standard on modern
 desktop Linux). Run `fakemic` from your graphical user session.
 
@@ -52,19 +70,19 @@ NO_COLOR             set to disable colored output
 ### pipx (recommended)
 
 ```bash
-pipx install git+...
+pipx install git+https://github.com/MitrichevGeorge/fakemic.git
 ```
 
 ### uv
 
 ```bash
-uv tool install ./fakemic
+uv tool install git+https://github.com/MitrichevGeorge/fakemic.git
 ```
 
 ### plain pip
 
 ```bash
-pip install --user ./fakemic
+pip install --user --break-system-packages git+https://github.com/MitrichevGeorge/fakemic.git
 ```
 
 Make sure your pipx/uv/pip bin directory (`~/.local/bin` or similar) is on

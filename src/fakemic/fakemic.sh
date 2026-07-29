@@ -66,18 +66,95 @@ detect_session() {
   die "cannot connect to PulseAudio/PipeWire. Run fakemic from your graphical user session."
 }
 
+# Map a missing command -> package name on the detected distro ($1=cmd, $2=id).
+_dep_pkg() {
+  case "$1" in
+    pactl)
+      case "$2" in
+        arch|manjaro|endeavouros|garuda|cachyos|artix) echo libpulse ;;
+        opensuse*|suse|sles)                           echo pulseaudio-utils ;;
+        *)                                             echo pulseaudio-utils ;;
+      esac ;;
+    sox) echo sox ;;
+    *)   echo "$1" ;;
+  esac
+}
+
+# Detect the distro's package installer + package names for the missing cmds.
+# Prints "<installer> <pkg...>" or empty if the distro is unknown.
+# $1 = os-release ID, $2.. = missing commands.
+_dep_install_line() {
+  local id="$1"; shift
+  local inst="" pkgs=() c
+  case "$id" in
+    debian|ubuntu|linuxmint|pop|kali)
+      inst="apt-get install -y" ;;
+    arch|manjaro|endeavouros|garuda|cachyos|artix)
+      inst="pacman -S --noconfirm --needed" ;;
+    fedora|rhel|rocky|almalinux|centos|amzn|nobara)
+      inst="dnf install -y" ;;
+    opensuse*|suse|sles)
+      inst="zypper install -y" ;;
+    *) return 1 ;;
+  esac
+  for c in "$@"; do pkgs+=( "$(_dep_pkg "$c" "$id")" ); done
+  printf '%s %s' "$inst" "${pkgs[*]}"
+}
+
 check_deps() {
-  command -v pactl >/dev/null 2>&1 || die "missing 'pactl' — install your distro's PulseAudio client lib, e.g.:
-    Arch:   pacman -S libpulse
-    Debian: apt install pulseaudio-utils
-    Fedora: dnf install pulseaudio-utils"
-  command -v sox   >/dev/null 2>&1 || die "missing 'sox' — install sox, e.g.:
-    Arch:   pacman -S sox
-    Debian: apt install sox
-    Fedora: dnf install sox"
-  if ! command -v systemctl >/dev/null 2>&1; then
-    echo "fakemic: warning: systemctl not found; white-noise will not persist across reboot." >&2
+  local missing=()
+  command -v pactl >/dev/null 2>&1 || missing+=(pactl)
+  command -v sox   >/dev/null 2>&1 || missing+=(sox)
+  if [ "${#missing[@]}" -eq 0 ]; then
+    command -v systemctl >/dev/null 2>&1 || \
+      echo "fakemic: warning: systemctl not found; white-noise will not persist across reboot." >&2
+    return 0
   fi
+
+  # Detect distro from /etc/os-release (ID), falling back to the first
+  # ID_LIKE token. Pure bash (no tr/head) so it works in a sparse PATH.
+  local id=""
+  if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    id="${ID:-}"
+    [ -n "$id" ] || id="${ID_LIKE%% *}"
+  fi
+  id="${id,,}"   # lowercase (bash 4+)
+
+  local line
+  line="$(_dep_install_line "$id" "${missing[@]}" 2>/dev/null)" || line=""
+
+  if [ -z "$line" ]; then
+    # Unknown distro — tell the user what's missing and let them install.
+    printf 'fakemic: missing system dependency: %s\n' "${missing[*]}" >&2
+    printf 'fakemic: install it with your package manager, then re-run fakemic.\n' >&2
+    exit 1
+  fi
+
+  # Non-interactive (pipe/script/systemd) — print the exact command and bail.
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    printf 'fakemic: missing system dependency: %s\n' "${missing[*]}" >&2
+    printf 'fakemic: install with:  sudo %s\n' "$line" >&2
+    exit 1
+  fi
+
+  # Interactive — offer to install now.
+  printf 'fakemic: missing system dependency: %s\n' "${missing[*]}"
+  printf 'fakemic: this needs root. Install now with:\n  %s%s%s\n' "$CB" "sudo $line" "$C0"
+  printf 'Proceed? [Y/n] '
+  local ans; read -r ans
+  case "$ans" in
+    n|N|no|NO|No) die "install the dependency above, then re-run fakemic." ;;
+  esac
+  # shellcheck disable=SC2086
+  sudo $line || die "dependency installation failed (ran: sudo $line)"
+  local c
+  for c in "${missing[@]}"; do
+    command -v "$c" >/dev/null 2>&1 || die "'$c' still not found after install"
+  done
+  command -v systemctl >/dev/null 2>&1 || \
+    echo "fakemic: warning: systemctl not found; white-noise will not persist across reboot." >&2
 }
 
 # --- carrier ----------------------------------------------------------------

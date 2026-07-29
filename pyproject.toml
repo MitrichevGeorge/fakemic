@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fakemic"
-version = "1.0.0"
+version = "1.1.0"
 description = "Fake virtual microphone (silent or white-noise) manager for PipeWire, set as the default capture so browsers list it first"
 readme = "README.md"
 requires-python = ">=3.9"
